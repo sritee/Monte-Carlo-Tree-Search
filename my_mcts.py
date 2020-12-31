@@ -28,14 +28,9 @@ class MCTSNode:
         self.action = action  # action taken to get to this from the parent
         self.children = []
         self.visits = 0
-        self.cum_value = 0
+        self.value = 0
         
         
-    @property
-    def value(self):
-        assert self.visits != 0, 'unvisited node has no value'
-        return self.cum_value / self.visits
-      
     @property
     def ucb_score(self):
         if self.visits == 0:
@@ -49,7 +44,13 @@ class MCTSNode:
         if not visited_children:  # none of them visited
             return None
         return max(visited_children, key=lambda child : child.value)
-
+    
+    def update_value(self, monte_carlo_return):
+        
+        # running average update
+        self.value = 1/(self.visits + 1) * (self.visits * self.value + monte_carlo_return)
+        self.visits += 1
+        
 
 def evaluate_mcts_policy(root_node, env, render=True):
     """greedy evaluation of mcts policy"""
@@ -87,7 +88,7 @@ def mcts_policy(env, num_iterations = 10000):
         node = root
         env_mcts = copy.deepcopy(env)
 
-        if iteration % 100 == 0:
+        if iteration % 500 == 0:
             print(f'performing iteration {iteration} of MCTS')
         
         done = False
@@ -100,37 +101,32 @@ def mcts_policy(env, num_iterations = 10000):
             if done:
                 break
         
+        
         # we are either at a leaf node or at a terminal state
         if not done: # leaf node. let's add its children
             node.children = [MCTSNode(node, a) for a in combinations(env_mcts.action_space)]
-            leaf_value = 0
-        else:
-            # terminal state. in this case the Monte carlo return of this state is just the last reward
-            leaf_value = reward
-        
+            
         # rollout with a random policy till we reach a terminal state
+        leaf_rollout_return = 0
         while not done:
             _, reward, done, _ = env_mcts.step(env_mcts.action_space.sample())
-            leaf_value += reward
+            leaf_rollout_return += reward
         
-        # for the final leaf node, the monte carlo return is just the leaf value
-        node.cum_value += leaf_value
-        node.visits += 1
+        
+        node.update_value(leaf_rollout_return)  # leaf node return
         node = node.parent
+        # monte carlo return of node = rewards from that node to leaf node + return of lead node
+        tree_node_returns = np.cumsum(tree_rewards) + leaf_rollout_return
         
-        # for other nodes, monte carlo return is sum of rewards from that node + leaf node monte carlo return
-        acum_rewards = np.flip(np.cumsum(tree_rewards))
-        return_idx = -1 # indicates index of cumulative return we are interested in 
-
-        while node:  # backup the MC return to parent nodes
-            # sum of tree rewards from that node + leaf_val
-            node.cum_value  += leaf_value + acum_rewards[return_idx]
-            return_idx-= 1
-            node.visits += 1
+        return_idx = 0 # parent of lead node's MC return is stored at index 0 of tree_node_returns
+        while node:  # backup the Monte carlo return till root
+            
+            node.update_value(tree_node_returns[return_idx])
+            return_idx += 1
             node = node.parent
         
         if  iteration % 500 == 0:
-            evaluate_mcts_policy(root, env, render=True)
+            evaluate_mcts_policy(root, env, render=False)
 
 
 
@@ -143,6 +139,7 @@ env = gym.make('CartPole-v1')
 #env = gym.make('Pong-v0')
 #env = gym.make('Acrobot-v1')
 #env = gym.make("intersection-v0")
+#env = gym.make('highway-v0')
 
 
 trials = 1
