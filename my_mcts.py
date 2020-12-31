@@ -10,8 +10,6 @@ import gym
 import numpy as np
 import copy
 import itertools
-import random
-import time
 
 def combinations(space):
     if isinstance(space, gym.spaces.Discrete):
@@ -23,7 +21,7 @@ def combinations(space):
         
 class MCTSNode:
     
-    C = 1  # UCB weighing term
+    C = 1  # UCB weighing term. Increasing it results in exploring for longer time.
     def __init__(self, parent, action):
         
         self.parent = parent
@@ -35,24 +33,22 @@ class MCTSNode:
         
     @property
     def value(self):
-        if self.visits == 0:
-            return 10000 # arbitrarily large
-        else:
-            return self.cum_value / self.visits
+        assert self.visits != 0, 'unvisited node has no value'
+        return self.cum_value / self.visits
       
     @property
     def ucb_score(self):
         if self.visits == 0:
-            return 100000 # arbitrarily large
-        else:
-            assert self.parent is not None
-            return self.value + self.C * np.sqrt(np.log(self.parent.visits)/self.visits)
+            return 10000 + np.random.rand(1)  # arbitrarly large plus noise for tie-break
+        return self.value + self.C * np.sqrt(np.log(self.parent.visits)/self.visits)
 
     @property
     def best_child(self):
-        if not self.children:
+        """return child with highest value. if no visited child return None"""
+        visited_children = [child for child in self.children if child.visits > 0]
+        if not visited_children:  # none of them visited
             return None
-        return max(self.children, key=lambda node: node.value)
+        return max(visited_children, key=lambda child : child.value)
 
 
 def evaluate_mcts_policy(root_node, env, render=True):
@@ -72,7 +68,6 @@ def evaluate_mcts_policy(root_node, env, render=True):
         root_node = root_node.best_child
         if render:
             env_backup.render()
-            time.sleep(1)
             
     while not done: # entering unexplored region, take random actions
         random_action = env_backup.action_space.sample()
@@ -85,93 +80,75 @@ def evaluate_mcts_policy(root_node, env, render=True):
 
 def mcts_policy(env, num_iterations = 10000):
     
-    root = MCTSNode(None, None)
-    # do several iterations of the following
-
-    # if has children
-    #   while node.children is not None
-            # node = parent.best child
-            # keep track of sequence of actions or step the simulator
-    
-    # when this statement is reached, we are at a node = leaf node
-    # add its children with cur node as parent.
-    # do a rollout from this node, for this, we'd need simulator with state equals this node at every step
-    # from start node, step the environment with sequences of actions taken to reach here
-    # now we have the monte carlo value of this node, need to back it up to parents
-    
-    # while node is not None:
-        # node.cum_value += monte_carlo_return
-        # node.visits += 1
-        # node = node.parent
-        
-    
-    # def evaluate tree which is greedy, and picks max value child
-    # if no child, it just samples randomly after that till episode termination
-    
+    root = MCTSNode(None, None) # root has no parent
     
     for iteration in range(num_iterations):
         
         node = root
         env_mcts = copy.deepcopy(env)
-        if iteration % 500 == 0:
+
+        if iteration % 100 == 0:
             print(f'performing iteration {iteration} of MCTS')
         
         done = False
+        tree_rewards = []
         
         while node.children:
             node = max(node.children, key=lambda node: node.ucb_score)
             _, reward, done, info = env_mcts.step(node.action)  # assume deterministic environment
-            # if reward == 1:
-            #     print('found')
+            tree_rewards.append(reward)
             if done:
                 break
         
-        # we are either at a leaf node or terminal state
-        if not done:
-            # leaf node
+        # we are either at a leaf node or at a terminal state
+        if not done: # leaf node. let's add its children
             node.children = [MCTSNode(node, a) for a in combinations(env_mcts.action_space)]
-            leaf_val = 0
+            leaf_value = 0
         else:
-            # terminal state. in this case the MC return of this state is just the last reward
-            leaf_val = reward
-            # rollout with a random policy till we reach a terminal state
-            while not done:
-                _, reward, done, _ = env_mcts.step(env_mcts.action_space.sample())
-                # if reward == 1:
-                #     print('found')
-                leaf_val += reward
+            # terminal state. in this case the Monte carlo return of this state is just the last reward
+            leaf_value = reward
+        
+        # rollout with a random policy till we reach a terminal state
+        while not done:
+            _, reward, done, _ = env_mcts.step(env_mcts.action_space.sample())
+            leaf_value += reward
+        
+        # for the final leaf node, the monte carlo return is just the leaf value
+        node.cum_value += leaf_value
+        node.visits += 1
+        node = node.parent
+        
+        # for other nodes, monte carlo return is sum of rewards from that node + leaf node monte carlo return
+        acum_rewards = np.flip(np.cumsum(tree_rewards))
+        return_idx = -1 # indicates index of cumulative return we are interested in 
 
         while node:  # backup the MC return to parent nodes
-            node.cum_value += leaf_val
+            # sum of tree rewards from that node + leaf_val
+            node.cum_value  += leaf_value + acum_rewards[return_idx]
+            return_idx-= 1
             node.visits += 1
             node = node.parent
         
         if  iteration % 500 == 0:
-            evaluate_mcts_policy(root, env, render=False)
+            evaluate_mcts_policy(root, env, render=True)
 
 
-# Note the code makes sense in the case of a sparse reward at the end
-# other the monte carlo returns are not propogated properly
-# doesn't seem to work on pong, random policy is not good enough to explore by the looks of it
-#env = gym.make('LunarLander-v2')
-#env = gym.make('CartPole-v1')
+
+# working
+env = gym.make('CartPole-v1')
+#env = gym.make('FrozenLake-v0')
+# maybe working
 #env = gym.make('Taxi-v3')
-env = gym.make('FrozenLake-v0')
-#env = gym.make('Pong-v4')
+# not working
+#env = gym.make('Pong-v0')
 #env = gym.make('Acrobot-v1')
+#env = gym.make("intersection-v0")
 
 
-
-trials = 10
+trials = 1
 for _ in range(trials):
     env.reset()
     mcts_policy(env, num_iterations = 10000)
-    
-# for _ in range(200):
-#     _, r, d , i = env.step(env.action_space.sample())
-#     env.render()
-#     time.sleep(0.1)
-#     print(r, d)
     
 env.close()
 
