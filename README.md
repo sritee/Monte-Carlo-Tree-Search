@@ -14,7 +14,7 @@ Monte Carlo Tree Search implementation for a receding horizon control setting.
 </p>
 
 <p align="center"> 
-   highway-v0 from highway_env
+   intersection-v0 from https://github.com/eleurent/highway-env
  </p>
 
 ## Features
