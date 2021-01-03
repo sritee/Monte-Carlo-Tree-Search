@@ -1,6 +1,14 @@
 # MCTS
 Monte Carlo Tree Search implementation for a receding horizon control setting.
 
+# Samples
+
+<p align="center">
+  <img src="/samples/gym_animation.gif" alt="Sublime's custom image"/>
+</p>
+<p align="center">
+  <img src="/samples/intersection.gif" alt="Sublime's custom image"/>
+</p>
 
 ## Features
 
