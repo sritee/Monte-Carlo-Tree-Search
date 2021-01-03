@@ -80,7 +80,7 @@ def evaluate_mcts_policy(root_node, env, render=True):
     env_backup.close()
     print(f'best action of length {len(best_actions)} and return {cum_reward}')
 
-def mcts_policy(env, num_iterations = 10000, gamma = 0.99):
+def mcts_policy(env, num_iterations = 10000, gamma = 0.99, max_depth = 500):
 
     root = MCTSNode(None, None) # root has no parent
 
@@ -88,7 +88,7 @@ def mcts_policy(env, num_iterations = 10000, gamma = 0.99):
 
         node = root
         env_mcts = copy.deepcopy(env)
-
+        depth = 0
         if iteration % 500 == 0:
             print(f'performing iteration {iteration} of MCTS')
 
@@ -99,21 +99,23 @@ def mcts_policy(env, num_iterations = 10000, gamma = 0.99):
             node = max(node.children, key=lambda node: node.ucb_score)
             _, reward, done, info = env_mcts.step(node.action)  # assume deterministic environment
             trajectory_rewards.append(reward)
-            if done:
+            depth+=1
+            if done or depth >= max_depth:
                 break
 
-        # we are either at a leaf node or at a terminal state
-        if not done: # leaf node. let's add its children
+        # at this point we are either at a leaf node or at a terminal state
+        if not done and depth < max_depth: # it's a leaf node. let's add its children
             node.children = [MCTSNode(node, a) for a in combinations(env_mcts.action_space)]
 
             # rollout with a random policy till we reach a terminal state
             leaf_rollout_return = 0
             leaf_rollout_depth = 0
 
-            while not done:
+            while not done and depth < max_depth:
                 _, reward, done, _ = env_mcts.step(env_mcts.action_space.sample())
                 leaf_rollout_return += gamma ** leaf_rollout_depth * reward  # discounted
                 leaf_rollout_depth += 1
+                depth+=1
 
             # append the Monte carlo return of the leaf node to trajectory reward.
             trajectory_rewards.append(leaf_rollout_return)
