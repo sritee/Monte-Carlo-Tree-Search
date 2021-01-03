@@ -6,6 +6,7 @@ Monte Carlo Tree Search implementation for a receding horizon control setting.
 
 - Supports sparse/dense rewards
 - Supports replanning for receding horizon control.
+- Simple and Stand-alone. 
 
 ## TODO 
 
