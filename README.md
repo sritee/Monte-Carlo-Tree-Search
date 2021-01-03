@@ -8,6 +8,10 @@ Monte Carlo Tree Search implementation for a receding horizon control setting.
 - Supports replanning for receding horizon control.
 - Simple and Stand-alone. 
 
+## Tested on
+
+- CartPole-v1, FrozenLake8x8, intersection-v0 (from highway_env), Taxi-v0
+
 ## TODO 
 
 - Reset tree statistics/visits on stepping the tree.
