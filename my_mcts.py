@@ -191,15 +191,13 @@ class MCTS:
         return self.get_plan_from_root()
 
 
-
-
 if __name__ == '__main__':
 
     env_name = 'CartPole-v1'
     gamma = 0.99  # discount factor
     replanning_horizon = 50 # length of open-loop control sequence after which MCTS replans
-    max_search_depth = 300  # maximum tree depth, depending on time-scale of environment.
-    num_iterations = 500   # number of iterations of MCTS tree updates per planning request.
+    max_search_depth = 500  # maximum tree depth, depending on time-scale of environment.
+    num_iterations = 1000   # number of iterations of MCTS tree updates per planning request.
 
     env = gym.make(env_name)
     # seed the environment. results still not exactly reproducible since rollout policy stochastic.
