@@ -27,6 +27,13 @@ Monte Carlo Tree Search implementation for a receding horizon control setting.
 
 - CartPole-v1, FrozenLake8x8, intersection-v0 (from highway_env), Taxi-v0
 
+## Hyperparameters
+- gamma (discount factor): 0.99 should work across most. 
+- replanning_horizon: number of timesteps after which MCTS is queried again for a new plan. It is set based on how long a sucessful episode could last and
+  granularity of control required. For example, in FrozenLake8x8-v0, a replannig horizon of 5 could be appropriate, but in cartpole, a horizon of 50 works fine.
+- max_tree_depth: maximum depth to which the tree is expanded. needs to be finite to support continuous control tasks. 
+- num_iterations: number of rollouts performed per MCTS query.
+
 ## TODO 
 
 - Reset tree statistics/visits on stepping the tree.
